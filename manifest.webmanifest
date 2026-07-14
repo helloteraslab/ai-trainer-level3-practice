@@ -1,0 +1,17 @@
+{
+  "name": "代码版多邻国：人工智能训练师实操",
+  "short_name": "Code Sprint",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f8fb",
+  "theme_color": "#0f172a",
+  "description": "面向人工智能训练师考试的碎片化代码实操学习工具。",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

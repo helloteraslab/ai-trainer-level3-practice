@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>代码版多邻国｜人工智能训练师实操</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="side-rail" aria-label="应用导航">
+        <div class="brand">
+          <div class="brand-mark">⌘</div>
+          <div>
+            <strong>Code Sprint</strong>
+            <span>AI Trainer</span>
+          </div>
+        </div>
+        <nav class="nav-tabs" aria-label="主导航">
+          <button class="nav-tab active" data-view="learn">今日学习</button>
+          <button class="nav-tab" data-view="tree">技能树</button>
+          <button class="nav-tab" data-view="review">复习中心</button>
+          <button class="nav-tab" data-view="bank">题库管理</button>
+        </nav>
+      </aside>
+
+      <main>
+        <section class="view active" id="learnView" aria-label="今日学习">
+          <div class="learn-toolbar">
+            <button class="ghost-button" id="resetProgressButton">清空本地学习记录</button>
+          </div>
+
+          <div class="lesson-layout">
+            <section class="lesson-card" id="lessonCard" aria-live="polite"></section>
+            <aside class="coach-card">
+              <h3>今日推荐</h3>
+              <div id="recommendationList"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="treeView" aria-labelledby="treeTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Progressive Learning</p>
+              <h2 id="treeTitle">技能树</h2>
+              <p class="section-copy">按知识点显示掌握程度。答对相关题目会增加该技能 XP，星级会逐步点亮。</p>
+            </div>
+          </div>
+          <div class="skill-tree" id="skillTree"></div>
+        </section>
+
+        <section class="view" id="reviewView" aria-labelledby="reviewTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Spaced Repetition</p>
+              <h2 id="reviewTitle">复习中心</h2>
+              <p class="section-copy">做错的题会回流到这里。当前原型优先展示最近错题，方便下一轮优先复习。</p>
+            </div>
+          </div>
+          <div class="review-grid">
+            <article class="panel">
+              <h3>常见遗忘点</h3>
+              <div id="errorConceptList"></div>
+            </article>
+            <article class="panel">
+              <h3>错题回流</h3>
+              <div id="mistakeList"></div>
+            </article>
+            <article class="panel">
+              <h3>学习热力图</h3>
+              <div class="heatmap" id="heatmap"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="bankView" aria-labelledby="bankTitle">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Import Studio</p>
+              <h2 id="bankTitle">题库管理</h2>
+            </div>
+          </div>
+          <div class="bank-layout">
+            <article class="panel">
+              <h3>当前题库来源</h3>
+              <div id="sourceBox"></div>
+            </article>
+            <article class="panel">
+              <h3>已解析实操题</h3>
+              <div id="rawQuestionList"></div>
+            </article>
+            <article class="panel wide">
+              <h3>AI 拆题预览</h3>
+              <div id="learningItemList"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./questions-data.js"></script>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
