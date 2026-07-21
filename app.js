@@ -180,7 +180,10 @@ function renderAnswerControl(item) {
       </div>
     `;
   }
-  return `<input class="answer-input" id="answerInput" placeholder="输入填空答案，例如 agg" />`;
+  const placeholder = item.answer_json?.ordered_answers
+    ? "按顺序输入多个空，用英文逗号分隔"
+    : "输入填空答案，例如 agg";
+  return `<input class="answer-input" id="answerInput" placeholder="${placeholder}" />`;
 }
 
 function bindLessonControls(item) {
@@ -231,8 +234,15 @@ function gradeAnswer(item, answer) {
   if (item.item_type === "choice") {
     correct = answer === answerJson.correct_option;
   } else if (item.item_type === "blank") {
-    const normalized = normalize(answer);
-    correct = answerJson.accepted_answers.some((accepted) => normalize(accepted) === normalized);
+    if (Array.isArray(answerJson.ordered_answers)) {
+      const parts = splitOrderedAnswer(answer);
+      correct =
+        parts.length === answerJson.ordered_answers.length &&
+        answerJson.ordered_answers.every((accepted, index) => normalize(accepted) === normalize(parts[index]));
+    } else {
+      const normalized = normalize(answer);
+      correct = answerJson.accepted_answers.some((accepted) => normalize(accepted) === normalized);
+    }
   }
   return { correct, answer };
 }
@@ -431,6 +441,13 @@ function formatType(type) {
 
 function normalize(value) {
   return String(value).trim().replace(/\s+/g, "").replace(/[""]/g, "'").toLowerCase();
+}
+
+function splitOrderedAnswer(value) {
+  return String(value)
+    .split(/[,，;；\n]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 function uniqueById(items) {
