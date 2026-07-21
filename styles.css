@@ -22,6 +22,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  padding-bottom: 92px;
   background:
     linear-gradient(135deg, rgba(34, 197, 94, 0.08), transparent 32%),
     linear-gradient(315deg, rgba(37, 99, 235, 0.08), transparent 28%),
@@ -199,15 +200,196 @@ h3 {
 }
 
 .lesson-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 18px;
+  display: block;
 }
 
 .lesson-card,
 .coach-card,
 .panel {
   padding: 22px;
+}
+
+.lesson-card {
+  max-width: 860px;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.practice-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -22px -22px 14px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 14px 14px 0 0;
+  background: rgba(246, 248, 251, 0.94);
+  backdrop-filter: blur(16px);
+}
+
+.practice-topbar h2 {
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.practice-topbar p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.compact {
+  min-height: 36px;
+  padding: 0 14px;
+}
+
+.practice-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.truth-code {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #fde68a;
+  border-left: 5px solid var(--blue);
+  border-radius: var(--radius);
+  background: #fffbeb;
+}
+
+.truth-code h3 {
+  margin: 4px 0 14px;
+  color: #854d0e;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.code-sheet {
+  display: block;
+  min-width: 0;
+  padding-left: 8px;
+  border-left: 6px solid rgba(37, 99, 235, 0.72);
+}
+
+.practice-step {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+}
+
+.practice-step + .practice-step {
+  margin-top: 14px;
+}
+
+.practice-step.active {
+  border-color: rgba(37, 99, 235, 0.5);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.practice-step.correct {
+  border-color: rgba(34, 197, 94, 0.46);
+}
+
+.practice-step.wrong {
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+.code-comment {
+  margin-bottom: 10px;
+  color: #0f766e;
+  font-size: 18px;
+  font-style: italic;
+  line-height: 1.55;
+}
+
+pre.true-code {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: white;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.65;
+  white-space: pre;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.step-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.answer-reveal {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  line-height: 1.55;
+}
+
+.answer-reveal p {
+  margin-bottom: 6px;
+}
+
+.answer-reveal p:last-child {
+  margin-bottom: 0;
+}
+
+.answer-reveal.correct {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.answer-reveal.wrong {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.answer-reveal code {
+  color: inherit;
+  font-weight: 800;
+}
+
+.bottom-stepbar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px max(14px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+}
+
+.bottom-stepbar .primary-button,
+.bottom-stepbar .secondary-button {
+  min-height: 56px;
+  font-size: 18px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .lesson-header {
@@ -283,12 +465,17 @@ pre {
 .answer-input,
 .answer-input {
   width: 100%;
-  min-height: 48px;
+  min-height: 54px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
+  border: 2px solid rgba(239, 68, 68, 0.62);
   border-radius: var(--radius);
-  background: white;
+  background: #fff1f2;
   color: var(--ink);
+  font-size: 17px;
+}
+
+.answer-input:focus {
+  outline: 3px solid rgba(239, 68, 68, 0.12);
 }
 
 .choice-grid {
@@ -458,6 +645,7 @@ pre {
     position: static;
     min-height: 0;
     margin-bottom: 14px;
+    box-shadow: none;
   }
 
   .nav-tabs {
@@ -481,15 +669,105 @@ pre {
 }
 
 @media (max-width: 560px) {
+  body {
+    background: #f6f8fb;
+  }
+
+  .app-shell {
+    padding: 0;
+  }
+
+  main {
+    padding: 0 10px 18px;
+  }
+
   .lesson-card,
   .coach-card,
   .panel,
   .side-rail {
-    padding: 16px;
+    padding: 14px;
+  }
+
+  .lesson-card,
+  .panel,
+  .side-rail {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .side-rail {
+    border-width: 0 0 1px;
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  .brand {
+    margin-bottom: 12px;
   }
 
   .nav-tabs {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .nav-tab {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .learn-toolbar {
+    margin: 10px 0;
+  }
+
+  .practice-topbar {
+    margin: -14px -14px 12px;
+    padding: 14px;
+    border-radius: 0;
+  }
+
+  .practice-topbar h2 {
+    font-size: 25px;
+  }
+
+  .practice-topbar p {
+    font-size: 14px;
+  }
+
+  .truth-code {
+    margin: 0 -4px;
+    padding: 12px 8px 12px 10px;
+  }
+
+  .truth-code h3 {
+    font-size: 17px;
+  }
+
+  .code-sheet {
+    padding-left: 7px;
+    border-left-width: 5px;
+  }
+
+  .practice-step {
+    padding: 12px;
+  }
+
+  .code-comment,
+  pre.true-code {
+    font-size: 17px;
+  }
+
+  pre.true-code {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .answer-input {
+    font-size: 16px;
+  }
+
+  .practice-tools {
+    justify-content: stretch;
+  }
+
+  .practice-tools .ghost-button {
+    flex: 1;
+  }
 }

@@ -2,8 +2,12 @@ const STORAGE_KEY = "codeDuolingoTrainerState.v1";
 
 const state = {
   bank: null,
-  currentItem: null,
+  currentRawQuestionId: null,
+  currentStepIndex: 0,
+  expanded: true,
   selectedChoice: null,
+  answers: {},
+  checkedResults: {},
   progress: loadProgress()
 };
 
@@ -15,6 +19,7 @@ function loadProgress() {
     attempts: [],
     mistakes: [],
     completedIds: [],
+    checkedIds: [],
     skillXp: {},
     activity: {}
   };
@@ -31,12 +36,11 @@ function saveProgress() {
 
 async function init() {
   state.bank = await loadQuestionBank();
-  state.currentItem = recommendItem();
+  state.currentRawQuestionId = recommendRawQuestionId();
   bindNavigation();
   bindReset();
   renderStats();
-  renderLesson();
-  renderRecommendations();
+  renderPractice();
   renderSkillTree();
   renderReview();
   renderBank();
@@ -73,11 +77,13 @@ function bindReset() {
   document.getElementById("resetProgressButton").addEventListener("click", () => {
     localStorage.removeItem(STORAGE_KEY);
     state.progress = loadProgress();
-    state.currentItem = recommendItem();
+    state.currentRawQuestionId = recommendRawQuestionId();
+    state.currentStepIndex = 0;
     state.selectedChoice = null;
+    state.answers = {};
+    state.checkedResults = {};
     renderStats();
-    renderLesson();
-    renderRecommendations();
+    renderPractice();
     renderSkillTree();
     renderReview();
   });
@@ -99,133 +105,234 @@ function renderStats() {
   heartsStat.textContent = state.progress.hearts;
 }
 
-function recommendItem() {
+function recommendRawQuestionId() {
   const items = state.bank.learningItems;
-  const dueMistake = state.progress.mistakes
-    .map((id) => items.find((item) => item.id === id))
-    .find(Boolean);
-  if (dueMistake) return dueMistake;
+  const mistakenItem = state.progress.mistakes.map((id) => items.find((item) => item.id === id)).find(Boolean);
+  if (mistakenItem) return mistakenItem.raw_question_id;
 
-  const candidates = items
-    .sort((a, b) => {
-      const aDone = state.progress.completedIds.includes(a.id) ? 1 : 0;
-      const bDone = state.progress.completedIds.includes(b.id) ? 1 : 0;
-      return aDone - bDone || a.mastery_level - b.mastery_level;
-    });
-  return candidates[0] || items[0];
+  const grouped = groupLearningItems();
+  const unfinished = state.bank.rawQuestions.find((raw) =>
+    (grouped.get(raw.id) || []).some((item) => !state.progress.checkedIds.includes(item.id))
+  );
+  return unfinished?.id || state.bank.rawQuestions[0]?.id || null;
 }
 
-function renderRecommendations() {
-  const container = document.getElementById("recommendationList");
-  const items = state.bank.learningItems
-    .filter((item) => item.id !== state.currentItem?.id)
-    .slice(0, 4);
-  container.innerHTML = items
-    .map(
-      (item) => `
-        <div class="recommendation-item">
-          <div class="pill-row">
-            <span class="pill green">${formatType(item.item_type)}</span>
-          </div>
-          <strong>${item.title}</strong>
-          <p class="small-muted">${item.knowledge_points.join(" · ")}</p>
-        </div>
-      `
-    )
-    .join("");
+function groupLearningItems() {
+  const grouped = new Map();
+  for (const item of state.bank.learningItems) {
+    if (!grouped.has(item.raw_question_id)) grouped.set(item.raw_question_id, []);
+    grouped.get(item.raw_question_id).push(item);
+  }
+  return grouped;
 }
 
-function renderLesson(feedback = null) {
+function getCurrentRawQuestion() {
+  return state.bank.rawQuestions.find((raw) => raw.id === state.currentRawQuestionId) || state.bank.rawQuestions[0];
+}
+
+function getCurrentItems() {
+  return groupLearningItems().get(getCurrentRawQuestion()?.id) || [];
+}
+
+function renderPractice() {
   const card = document.getElementById("lessonCard");
-  const item = state.currentItem;
-  if (!item) {
+  const raw = getCurrentRawQuestion();
+  const items = getCurrentItems();
+  const currentItem = items[state.currentStepIndex] || items[0];
+  if (!raw || !items.length || !currentItem) {
     card.innerHTML = `<div class="empty-state">题库为空。</div>`;
     return;
   }
 
+  state.currentStepIndex = Math.min(state.currentStepIndex, items.length - 1);
+  const checkedCount = items.filter((item) => state.progress.checkedIds.includes(item.id)).length;
+  const shownItems = state.expanded ? items : [currentItem];
+
   card.innerHTML = `
-    <div class="lesson-header">
+    <div class="practice-topbar">
       <div>
-        <div class="pill-row">
-          <span class="pill green">${formatType(item.item_type)}</span>
-          <span class="pill">${"⭐".repeat(item.mastery_level)}</span>
-        </div>
-        <h2>${item.title}</h2>
+        <h2>${escapeHtml(raw.question_no)} 实操训练</h2>
+        <p>步骤 · ${checkedCount}/${items.length} 已核对 · ${escapeHtml(raw.title)}</p>
       </div>
-      <button class="secondary-button" id="nextButton">换一题</button>
+      <button class="secondary-button compact" id="toggleExpandButton">${state.expanded ? "收起" : "展开"}</button>
     </div>
-    ${item.task_hint ? `<div class="task-hint"><span>原题提示</span><strong>${escapeHtml(item.task_hint)}</strong></div>` : ""}
-    ${item.starter_code ? `<pre><code>${escapeHtml(item.starter_code)}</code></pre>` : ""}
-    ${renderAnswerControl(item)}
-    <div class="skill-tags">
-      ${item.knowledge_points.map((point) => `<span class="pill">${escapeHtml(point)}</span>`).join("")}
+
+    <div class="practice-tools">
+      <button class="ghost-button" id="switchRawButton">换一题</button>
+      <button class="ghost-button" id="resetRawButton">重练本题</button>
     </div>
-    <div class="actions">
-      <button class="primary-button" id="submitButton">提交答案</button>
-      <button class="secondary-button" id="hintButton">提示</button>
+
+    <section class="truth-code">
+      <h3>真题代码（空位与真题一致，在空格处作答）</h3>
+      <div class="code-sheet">
+        ${shownItems.map((item) => renderPracticeStep(item, items.indexOf(item))).join("")}
+      </div>
+    </section>
+
+    <div class="bottom-stepbar">
+      <button class="secondary-button" id="prevStepButton" ${state.currentStepIndex === 0 ? "disabled" : ""}>上一步</button>
+      <button class="primary-button" id="nextStepButton">${state.currentStepIndex >= items.length - 1 ? "完成本题" : "下一步"}</button>
     </div>
-    <div id="feedbackHost">${feedback ? renderFeedback(item, feedback) : ""}</div>
   `;
 
-  bindLessonControls(item);
+  bindPracticeControls(items);
+  scrollCurrentStepIntoView();
 }
 
-function renderAnswerControl(item) {
+function renderPracticeStep(item, index) {
+  const result = state.checkedResults[item.id];
+  const checkedClass = result ? (result.correct ? "correct" : "wrong") : "";
+  const activeClass = index === state.currentStepIndex ? "active" : "";
+  const answer = state.answers[item.id] || "";
+  const answerText = getDisplayAnswer(item);
+
+  return `
+    <article class="practice-step ${activeClass} ${checkedClass}" id="step-${item.id}">
+      <p class="code-comment"># ${escapeHtml(item.task_hint || item.title)}</p>
+      ${item.starter_code ? `<pre class="true-code"><code>${escapeHtml(item.starter_code)}</code></pre>` : ""}
+      ${renderStepAnswerControl(item, answer)}
+      <div class="step-actions">
+        <button class="primary-button check-button" data-item-id="${item.id}">核对</button>
+      </div>
+      ${
+        result
+          ? `<div class="answer-reveal ${result.correct ? "correct" : "wrong"}">
+              <strong>${result.correct ? "答对了" : "还差一点"}</strong>
+              <p>答案：<code>${escapeHtml(answerText)}</code></p>
+              <p>${escapeHtml(item.feedback.summary)}</p>
+            </div>`
+          : ""
+      }
+    </article>
+  `;
+}
+
+function renderStepAnswerControl(item, value) {
   if (item.item_type === "choice") {
     return `
       <div class="choice-grid">
         ${item.answer_json.options
-          .map((option) => `<button class="choice-button" data-choice="${escapeHtml(option)}">${escapeHtml(option)}</button>`)
+          .map(
+            (option) => `
+              <button class="choice-button ${value === option ? "selected" : ""}" data-item-id="${item.id}" data-choice="${escapeHtml(option)}">
+                ${escapeHtml(option)}
+              </button>
+            `
+          )
           .join("")}
       </div>
     `;
   }
-  const placeholder = item.answer_json?.ordered_answers
-    ? "按顺序输入多个空，用英文逗号分隔"
-    : "输入填空答案，例如 agg";
-  return `<input class="answer-input" id="answerInput" placeholder="${placeholder}" />`;
+  const placeholder = item.answer_json?.ordered_answers ? "多个空用逗号分隔，例如 cv2.resize, image" : "填空";
+  return `
+    <input
+      class="answer-input"
+      data-item-id="${item.id}"
+      value="${escapeAttribute(value)}"
+      placeholder="${escapeHtml(placeholder)}"
+      autocomplete="off"
+      autocapitalize="none"
+      spellcheck="false"
+    />
+  `;
 }
 
-function bindLessonControls(item) {
-  const nextButton = document.getElementById("nextButton");
-  nextButton.addEventListener("click", () => {
-    const items = state.bank.learningItems;
-    const currentIndex = items.findIndex((candidate) => candidate.id === item.id);
-    state.currentItem = items[(currentIndex + 1) % items.length] || recommendItem();
-    state.selectedChoice = null;
-    renderLesson();
-    renderRecommendations();
+function bindPracticeControls(items) {
+  document.getElementById("toggleExpandButton").addEventListener("click", () => {
+    state.expanded = !state.expanded;
+    renderPractice();
   });
 
-  document.getElementById("submitButton").addEventListener("click", submitAnswer);
-  document.getElementById("hintButton").addEventListener("click", () => {
-    const host = document.getElementById("feedbackHost");
-    host.innerHTML = `<div class="feedback"><strong>提示</strong><p>${escapeHtml(item.feedback.summary)}</p></div>`;
+  document.getElementById("switchRawButton").addEventListener("click", () => {
+    const rawQuestions = state.bank.rawQuestions.filter((raw) => getItemsForRaw(raw.id).length);
+    const currentIndex = rawQuestions.findIndex((raw) => raw.id === state.currentRawQuestionId);
+    const nextRaw = rawQuestions[(currentIndex + 1) % rawQuestions.length] || rawQuestions[0];
+    state.currentRawQuestionId = nextRaw.id;
+    state.currentStepIndex = 0;
+    renderPractice();
+  });
+
+  document.getElementById("resetRawButton").addEventListener("click", () => {
+    for (const item of items) {
+      delete state.answers[item.id];
+      delete state.checkedResults[item.id];
+      state.progress.checkedIds = state.progress.checkedIds.filter((id) => id !== item.id);
+      state.progress.completedIds = state.progress.completedIds.filter((id) => id !== item.id);
+      state.progress.mistakes = state.progress.mistakes.filter((id) => id !== item.id);
+    }
+    saveProgress();
+    renderPractice();
+    renderReview();
+    renderSkillTree();
+  });
+
+  document.getElementById("prevStepButton").addEventListener("click", () => {
+    if (state.currentStepIndex === 0) return;
+    state.currentStepIndex -= 1;
+    renderPractice();
+  });
+
+  document.getElementById("nextStepButton").addEventListener("click", () => {
+    if (state.currentStepIndex < items.length - 1) {
+      state.currentStepIndex += 1;
+      renderPractice();
+      return;
+    }
+    state.currentRawQuestionId = getNextRawQuestionId();
+    state.currentStepIndex = 0;
+    renderPractice();
+  });
+
+  document.querySelectorAll(".answer-input").forEach((input) => {
+    input.addEventListener("input", () => {
+      state.answers[input.dataset.itemId] = input.value;
+    });
   });
 
   document.querySelectorAll(".choice-button").forEach((button) => {
     button.addEventListener("click", () => {
-      state.selectedChoice = button.dataset.choice;
-      document.querySelectorAll(".choice-button").forEach((choice) => choice.classList.remove("selected"));
-      button.classList.add("selected");
+      state.answers[button.dataset.itemId] = button.dataset.choice;
+      renderPractice();
+    });
+  });
+
+  document.querySelectorAll(".check-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      const item = state.bank.learningItems.find((candidate) => candidate.id === button.dataset.itemId);
+      const index = items.findIndex((candidate) => candidate.id === item.id);
+      state.currentStepIndex = index;
+      submitStep(item);
     });
   });
 }
 
-function submitAnswer() {
-  const item = state.currentItem;
-  const answer = getAnswer(item);
+function submitStep(item) {
+  const answer = state.answers[item.id] || "";
   const result = gradeAnswer(item, answer);
+  state.checkedResults[item.id] = result;
   updateProgress(item, result.correct, answer);
   renderStats();
-  renderLesson(result);
+  renderPractice();
   renderSkillTree();
   renderReview();
 }
 
-function getAnswer(item) {
-  if (item.item_type === "choice") return state.selectedChoice;
-  return document.getElementById("answerInput")?.value.trim() || "";
+function getItemsForRaw(rawQuestionId) {
+  return groupLearningItems().get(rawQuestionId) || [];
+}
+
+function getNextRawQuestionId() {
+  const rawQuestions = state.bank.rawQuestions.filter((raw) => getItemsForRaw(raw.id).length);
+  const currentIndex = rawQuestions.findIndex((raw) => raw.id === state.currentRawQuestionId);
+  return (rawQuestions[(currentIndex + 1) % rawQuestions.length] || rawQuestions[0]).id;
+}
+
+function scrollCurrentStepIntoView() {
+  window.setTimeout(() => {
+    const item = getCurrentItems()[state.currentStepIndex];
+    document.getElementById(`step-${item?.id}`)?.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+    window.scrollTo({ top: window.scrollY, left: 0 });
+  }, 60);
 }
 
 function gradeAnswer(item, answer) {
@@ -256,11 +363,12 @@ function updateProgress(item, correct, answer) {
     answer,
     at: new Date().toISOString()
   });
-  state.progress.attempts = state.progress.attempts.slice(0, 40);
+  state.progress.attempts = state.progress.attempts.slice(0, 80);
+  state.progress.checkedIds = [...new Set([...(state.progress.checkedIds || []), item.id])];
   state.progress.activity[today] = (state.progress.activity[today] || 0) + (correct ? item.xp : 1);
 
   if (correct) {
-    state.progress.xp += item.xp;
+    if (!state.progress.completedIds.includes(item.id)) state.progress.xp += item.xp;
     state.progress.completedIds = [...new Set([...state.progress.completedIds, item.id])];
     state.progress.mistakes = state.progress.mistakes.filter((id) => id !== item.id);
     item.skills.forEach((skill) => {
@@ -268,37 +376,15 @@ function updateProgress(item, correct, answer) {
     });
   } else {
     state.progress.hearts = Math.max(0, state.progress.hearts - 1);
-    state.progress.mistakes = [...new Set([item.id, ...state.progress.mistakes])].slice(0, 8);
+    state.progress.mistakes = [...new Set([item.id, ...state.progress.mistakes])].slice(0, 12);
   }
   saveProgress();
 }
 
-function renderFeedback(item, result) {
-  const statusClass = result.correct ? "correct" : "wrong";
-  const title = result.correct ? "答对了，XP 已增加" : "还差一点，已加入复习队列";
-  return `
-    <div class="feedback ${statusClass}">
-      <strong>${title}</strong>
-      <div class="feedback-grid">
-        <div class="feedback-layer">
-          <strong>1. 能否运行</strong>
-          <span>${escapeHtml(item.feedback.run)}</span>
-        </div>
-        <div class="feedback-layer">
-          <strong>2. 测试结果</strong>
-          <span>${escapeHtml(item.feedback.tests)}</span>
-        </div>
-        <div class="feedback-layer">
-          <strong>3. 更好写法</strong>
-          <span>${escapeHtml(item.feedback.better)}</span>
-        </div>
-        <div class="feedback-layer">
-          <strong>4. 知识点总结</strong>
-          <span>${escapeHtml(item.feedback.summary)}</span>
-        </div>
-      </div>
-    </div>
-  `;
+function getDisplayAnswer(item) {
+  if (Array.isArray(item.answer_json?.ordered_answers)) return item.answer_json.ordered_answers.join(", ");
+  if (item.item_type === "choice") return item.answer_json.correct_option;
+  return item.answer_json?.accepted_answers?.[0] || "";
 }
 
 function renderSkillTree() {
@@ -466,6 +552,10 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replaceAll("`", "&#096;");
 }
 
 init();
